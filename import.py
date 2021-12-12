@@ -224,10 +224,11 @@ with open(csv_name, 'rU') as import_file:
         # Initialize Variables
         date = row[0]
         postDate = row[1]
-        merchant = row[2]
-        catName = row[3]
-        typeID = row[4]
-        amount = row[5]
+        description = row[2]
+        merchant = row[3]
+        catName = row[4]
+        typeID = row[5]
+        amount = -Decimal(row[6]) # Apple now exports expenses as positive value, and income as negative
         expense = 'true'
         curl_input = 'Error: Did not Generate'
         curl_output = 'Error: Did not run'
@@ -285,7 +286,7 @@ with open(csv_name, 'rU') as import_file:
         Process Amount seeing if transaction is an expense or income.   
         #################################
         """
-        if Decimal(amount) < 0:
+        if amount < 0:
             expense = 'true'  # when amount is less than 0 this is an expense, ie money left your account, ex like buying a sandwich.
         else:
             expense = 'false'  # when amount is greater than 0 this is income, ie money went INTO your account, ex like a paycheck.
@@ -314,7 +315,7 @@ with open(csv_name, 'rU') as import_file:
         # Piece together curl form data
         curl_form = f"\'cashTxnType=on&mtCheckNo=&{tag1}=0&{tag2}=0&{tag3}=0&" \
                     f"task=txnadd&txnId=%3A0&mtType=cash&mtAccount={account}&symbol=&note=&isInvestment=false&" \
-                    f"catId={catID}&category={category}&merchant={merchant}&date={dateoutput}&amount={amount}&mtIsExpense={expense}&mtCashSplitPref=1&mtCashSplit=on&" \
+                    f"catId={catID}&category={category}&merchant={merchant}&date={dateoutput}&amount={str(amount)}&mtIsExpense={expense}&mtCashSplitPref=1&mtCashSplit=on&" \
                     f"token={token}\'"
 
         # Combine all curl fragments together into an entire curl command
