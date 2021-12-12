@@ -3,33 +3,6 @@ Run the code by typing the following from the directory the code is located in
 
     python3 import.py
 
-
-Virtual Environment Setup (from app repo root)
-1. Make sure you have venv on your system, using the following command based on your python version 
-
-```
-python3 -m pip3 install virtualenv
-```
-
-2. Make sure you are in repo root 
-    - (where import.py is)
-   
-3. Create a virtual environment
-
-```
-virtualenv venv
-```
-
-4. Turn on the virtual environment (these should work on both but depends on your version you may need to explicitly run the sh or bat file)
-    - Mac / Linux in terminal or bash: 
-   ```
-   venv/Scripts/activate
-   ```
-    - Windows in powershell: 
-   ```
-   venv\Scripts\activate
-   ```
-
 ## Overview: ##
 Simulates bulk manual transaction adds to mint.com. Mint manual transactions are submitted as "cash transactions" which
 will mean it shows in your cash / all accounts transaction list. You cannot submit manual transactions against credit
