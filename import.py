@@ -41,11 +41,14 @@ Future Development:
 Settings 
 #################################
 """
-csv_name = 'import.csv'  # name of csv you want import to mint [string.csv]
 verbose_output = 1  # should verbose messages be printed [0,1]
 uk_to_us = 0  # do you need to change dates from UK to US format [0,1]
 min_wait = 0  # min wait time in seconds between requests, int[0-n]
 max_wait = 2  # max wait time in seconds between requests, int[0-n]
+csv_paths = [
+    # paths to csv files
+]
+
 
 """
 #################################
@@ -214,142 +217,144 @@ def category_id_switch(import_category):
     # Get the mint category ID from the map
     return str(switcher.get(import_category, 20))  # For all other unmapped cases return uncategorized category "20"
 
+for csv_name in csv_paths:
+    print(csv_name)
 
-with open(csv_name, 'rU') as import_file:
-    csv_object = csv.reader(import_file)
-    next(csv_object)  # Skip headers
+    with open(csv_name, 'rU') as import_file:
+        csv_object = csv.reader(import_file)
+        next(csv_object)  # Skip headers
 
-    for row in csv_object:
+        for row in csv_object:
 
-        # Initialize Variables
-        date = row[0]
-        postDate = row[1]
-        description = row[2]
-        merchant = row[3]
-        catName = row[4]
-        typeID = row[5]
-        amount = -Decimal(row[6]) # Apple now exports expenses as positive value, and income as negative
-        expense = 'true'
-        curl_input = 'Error: Did not Generate'
-        curl_output = 'Error: Did not run'
+            # Initialize Variables
+            date = row[0]
+            postDate = row[1]
+            description = row[2]
+            merchant = row[3]
+            catName = row[4]
+            typeID = row[5]
+            amount = -Decimal(row[6]) # Apple now exports expenses as positive value, and income as negative
+            expense = 'true'
+            curl_input = 'Error: Did not Generate'
+            curl_output = 'Error: Did not run'
 
-        """
-        #################################
-        Process Date for format and HTTP Encode
-        #################################
-        """
+            """
+            #################################
+            Process Date for format and HTTP Encode
+            #################################
+            """
 
-        # Convert Commonwealth to US Date System
-        if uk_to_us == 1:  # based on setting
-            dateconv = time.strptime(date, "%d/%m/%Y")  # not needed for US to US
-            date = time.strftime("%m/%d/%Y", dateconv)  # converted new US date format from UK
+            # Convert Commonwealth to US Date System
+            if uk_to_us == 1:  # based on setting
+                dateconv = time.strptime(date, "%d/%m/%Y")  # not needed for US to US
+                date = time.strftime("%m/%d/%Y", dateconv)  # converted new US date format from UK
 
-        # Require "/" for date delimiter and HTTP Encode Character, supports "/", ".", "-"
-        # We are not using url encode library here because we custom map other delimiters
-        dateoutput = date.replace("/", "%2F")
-        dateoutput = dateoutput.replace(".", "%2F")
-        dateoutput = dateoutput.replace("-", "%2F")
+            # Require "/" for date delimiter and HTTP Encode Character, supports "/", ".", "-"
+            # We are not using url encode library here because we custom map other delimiters
+            dateoutput = date.replace("/", "%2F")
+            dateoutput = dateoutput.replace(".", "%2F")
+            dateoutput = dateoutput.replace("-", "%2F")
 
-        """
-        #################################
-        Process Merchant with HTTP Encode
-        #################################
-        """
-        merchant = urllib.parse.quote(merchant)
+            """
+            #################################
+            Process Merchant with HTTP Encode
+            #################################
+            """
+            merchant = urllib.parse.quote(merchant)
 
-        """
-        #################################
-        Process Categories 
-        #################################
-    
-        Support is limited to the categories I needed at the time, if you need to map more you can. To get category ids: 
-         1. Go to mint 
-         2. Add a transactions
-         3. Right click "inspect-element" on the category you want
-         4. The ID is in the <li> item that encapsulates the a href
-         5. Add mapping here based on string match from your CSV to the catID you got from mint (following existing examples)
-        """
+            """
+            #################################
+            Process Categories 
+            #################################
+        
+            Support is limited to the categories I needed at the time, if you need to map more you can. To get category ids: 
+            1. Go to mint 
+            2. Add a transactions
+            3. Right click "inspect-element" on the category you want
+            4. The ID is in the <li> item that encapsulates the a href
+            5. Add mapping here based on string match from your CSV to the catID you got from mint (following existing examples)
+            """
 
-        # typeID payment overrides all categories
-        if typeID == "Payment":
-            catID = '2101'  # Since I was importing credit cards I have mine set to credit card payment. If you are doing bank accounts you many want to change this to payment general
+            # typeID payment overrides all categories
+            if typeID == "Payment":
+                catID = '2101'  # Since I was importing credit cards I have mine set to credit card payment. If you are doing bank accounts you many want to change this to payment general
 
-        # if type is NOT payment then do a category check
-        else:
-            catID = category_id_switch(catName)
+            # if type is NOT payment then do a category check
+            else:
+                catID = category_id_switch(catName)
 
-        # Set mint category name by looking up name in ID map
-        category = urllib.parse.quote(catName)
+            # Set mint category name by looking up name in ID map
+            category = urllib.parse.quote(catName)
 
-        """
-        #################################
-        Process Amount seeing if transaction is an expense or income.   
-        #################################
-        """
-        if amount < 0:
-            expense = 'true'  # when amount is less than 0 this is an expense, ie money left your account, ex like buying a sandwich.
-        else:
-            expense = 'false'  # when amount is greater than 0 this is income, ie money went INTO your account, ex like a paycheck.
+            """
+            #################################
+            Process Amount seeing if transaction is an expense or income.   
+            #################################
+            """
+            if amount < 0:
+                expense = 'true'  # when amount is less than 0 this is an expense, ie money left your account, ex like buying a sandwich.
+            else:
+                expense = 'false'  # when amount is greater than 0 this is income, ie money went INTO your account, ex like a paycheck.
 
-        """
-        #################################
-        Build CURL POST Request
-        TODO: Swap command string generation for parametrized curl class 
-        #################################
-        """
+            """
+            #################################
+            Build CURL POST Request
+            TODO: Swap command string generation for parametrized curl class 
+            #################################
+            """
 
-        # fragment curl command
-        curl_command = "curl -i -s -k -X POST 'https://mint.intuit.com/updateTransaction.xevent'"
-        curl_host = "-H 'Host: mint.intuit.com'"
-        curl_user_agent = "-H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.129 Safari/537.36'"
-        curl_accept = "-H 'Accept: */*'"
-        curl_accept_language = "-H 'Accept-Language: en-US,en;q=0.5'"
-        curl_compressed = "--compressed"
-        curl_x_requested_with = "-H 'X-Requested-With: XMLHttpRequest'"
-        curl_content_type = "-H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8'"
-        curl_referer = f"-H \'Referer: https://mint.intuit.com/transaction.event?accountId={referrer}\'"
-        curl_cookie = f"-H \'Cookie: {cookie}\'"
-        curl_connection = "-H 'Connection: close' "
-        curl_data = "--data"
+            # fragment curl command
+            curl_command = "curl -i -s -k -X POST 'https://mint.intuit.com/updateTransaction.xevent'"
+            curl_host = "-H 'Host: mint.intuit.com'"
+            curl_user_agent = "-H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.129 Safari/537.36'"
+            curl_accept = "-H 'Accept: */*'"
+            curl_accept_language = "-H 'Accept-Language: en-US,en;q=0.5'"
+            curl_compressed = "--compressed"
+            curl_x_requested_with = "-H 'X-Requested-With: XMLHttpRequest'"
+            curl_content_type = "-H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8'"
+            curl_referer = f"-H \'Referer: https://mint.intuit.com/transaction.event?accountId={referrer}\'"
+            curl_cookie = f"-H \'Cookie: {cookie}\'"
+            curl_connection = "-H 'Connection: close' "
+            curl_data = "--data"
 
-        # Piece together curl form data
-        curl_form = f"\'cashTxnType=on&mtCheckNo=&{tag1}=0&{tag2}=0&{tag3}=0&" \
-                    f"task=txnadd&txnId=%3A0&mtType=cash&mtAccount={account}&symbol=&note=&isInvestment=false&" \
-                    f"catId={catID}&category={category}&merchant={merchant}&date={dateoutput}&amount={str(amount)}&mtIsExpense={expense}&mtCashSplitPref=1&mtCashSplit=on&" \
-                    f"token={token}\'"
+            # Piece together curl form data
+            curl_form = f"\'cashTxnType=on&mtCheckNo=&{tag1}=0&{tag2}=0&{tag3}=0&" \
+                        f"task=txnadd&txnId=%3A0&mtType=cash&mtAccount={account}&symbol=&note=&isInvestment=false&" \
+                        f"catId={catID}&category={category}&merchant={merchant}&date={dateoutput}&amount={str(amount)}&mtIsExpense={expense}&mtCashSplitPref=1&mtCashSplit=on&" \
+                        f"token={token}\'"
 
-        # Combine all curl fragments together into an entire curl command
-        curl_input = " ".join([curl_command, curl_host, curl_user_agent,
-                               curl_accept, curl_accept_language, curl_compressed,
-                               curl_x_requested_with, curl_content_type, curl_referer,
-                               curl_cookie, curl_connection, curl_data, curl_form])
+            # Combine all curl fragments together into an entire curl command
+            curl_input = " ".join([curl_command, curl_host, curl_user_agent,
+                                curl_accept, curl_accept_language, curl_compressed,
+                                curl_x_requested_with, curl_content_type, curl_referer,
+                                curl_cookie, curl_connection, curl_data, curl_form])
 
-        """
-        #################################
-        Submit CURL POST Request
-        #################################
-        """
-        curl_output = str(os.system(curl_input))  # use os system to run a curl request submitting the form post
+            """
+            #################################
+            Submit CURL POST Request
+            #################################
+            """
+            curl_output = str(os.system(curl_input))  # use os system to run a curl request submitting the form post
 
-        """
-        #################################
-        Verbose Output for Debug
-        #################################
-        """
-        if verbose_output == 1:
-            print('Transaction Date:', dateoutput)  # date of transaction
-            print('Merchant', merchant)  # merchant Description
-            print('Category ID:', catID)  # category of transaction
-            print('Category Name:', category)  # category of transaction
-            print('Amount:', amount)  # amount being processed
-            print('Expense:', expense)  # in amount expense
-            print('CURL Request:', curl_input)  # what was sent to mint
-            print('CURL Response:', curl_output)  # what was returned from mint OR curl ERROR
-            print('\n\n==============\n')  # new line break
+            """
+            #################################
+            Verbose Output for Debug
+            #################################
+            """
+            if verbose_output == 1:
+                print('Transaction Date:', dateoutput)  # date of transaction
+                print('Merchant', merchant)  # merchant Description
+                print('Category ID:', catID)  # category of transaction
+                print('Category Name:', category)  # category of transaction
+                print('Amount:', amount)  # amount being processed
+                print('Expense:', expense)  # in amount expense
+                print('CURL Request:', curl_input)  # what was sent to mint
+                print('CURL Response:', curl_output)  # what was returned from mint OR curl ERROR
+                print('\n\n==============\n')  # new line break
 
-        """
-        #################################
-        Force a random wait between 2 and 5 seconds per requests to simulate UI and avoid rate limiting
-        #################################
-        """
-        time.sleep(random.randint(min_wait, max_wait))
+            """
+            #################################
+            Force a random wait between 2 and 5 seconds per requests to simulate UI and avoid rate limiting
+            #################################
+            """
+            time.sleep(random.randint(min_wait, max_wait))
